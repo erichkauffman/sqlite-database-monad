@@ -8,11 +8,11 @@ where
 
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Control.Monad.Trans.Reader (ReaderT (..))
-import Database.SQLite.Simple (FromRow, Query)
+import Database.SQLite.Simple (Connection, FromRow, Query)
 import qualified Database.SQLite.Simple as Simple
 import Prelude hiding (read)
 
-newtype Database a = Database (ReaderT String IO a)
+newtype Database a = Database (ReaderT Connection IO a)
 
 instance Functor Database where
   fmap f (Database dbReader) = Database $ fmap f dbReader
@@ -29,15 +29,17 @@ instance Monad Database where
     dbReaderB
 
 runIO :: String -> Database a -> IO a
-runIO dbConnection (Database dbReader) = runReaderT dbReader dbConnection
+runIO dbFile (Database dbReader) = do
+  dbConnection <- Simple.open dbFile
+  result <- Simple.withTransaction dbConnection $ runReaderT dbReader dbConnection
+  Simple.close dbConnection
+  return result
 
 runLiftIO :: MonadIO m => String -> Database a -> m a
 runLiftIO dbConnection = liftIO . runIO dbConnection
 
 read :: FromRow a => Query -> Database [a]
-read query = Database $
-  ReaderT $ \db -> do
-    conn <- Simple.open db
-    listA <- Simple.query_ conn query
-    Simple.close conn
-    return listA
+read query =
+  Database $
+    ReaderT $
+      \dbConnection -> Simple.query_ dbConnection query
