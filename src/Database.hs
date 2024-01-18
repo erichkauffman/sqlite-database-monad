@@ -3,15 +3,17 @@
 module Database
   ( Database,
     read,
+    readWithParams,
     runIO,
     runLiftIO,
+    write,
   )
 where
 
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Control.Monad.Trans.Reader (ReaderT (..))
 import Data.Text (Text)
-import Database.SQLite.Simple (Connection, FromRow, Query (..))
+import Database.SQLite.Simple (Connection, FromRow, NamedParam, Query (..))
 import qualified Database.SQLite.Simple as Simple
 import Prelude hiding (read)
 
@@ -46,8 +48,17 @@ runIO dbFile (Database dbReader) = do
 runLiftIO :: MonadIO m => String -> Database a -> m a
 runLiftIO dbConnection = liftIO . runIO dbConnection
 
+createDb :: (Connection -> IO a) -> Database a
+createDb = Database . ReaderT
+
 read :: FromRow a => Text -> Database [a]
 read query =
-  Database $
-    ReaderT $
-      \dbConnection -> Simple.query_ dbConnection $ Query query
+  createDb (\dbConnection -> Simple.query_ dbConnection $ Query query)
+
+readWithParams :: FromRow a => Text -> [NamedParam] -> Database [a]
+readWithParams query params =
+  createDb (\dbConnection -> Simple.queryNamed dbConnection (Query query) params)
+
+write :: Text -> [NamedParam] -> Database ()
+write query params =
+  createDb (\dbConnection -> Simple.executeNamed dbConnection (Query query) params)
