@@ -2,6 +2,7 @@
 
 module Database
   ( Database,
+    DbConnection (..),
     read,
     readWithParams,
     runIO,
@@ -18,6 +19,8 @@ import qualified Database.SQLite.Simple as Simple
 import Prelude hiding (read)
 
 newtype Database a = Database (ReaderT Connection IO a)
+
+newtype DbConnection = DbConnection String
 
 instance Functor Database where
   fmap :: (a -> b) -> Database a -> Database b
@@ -38,14 +41,14 @@ instance Monad Database where
     let (Database dbReaderB) = f a
     dbReaderB
 
-runIO :: String -> Database a -> IO a
-runIO dbFile (Database dbReader) = do
+runIO :: DbConnection -> Database a -> IO a
+runIO (DbConnection dbFile) (Database dbReader) = do
   dbConnection <- Simple.open dbFile
   result <- Simple.withTransaction dbConnection $ runReaderT dbReader dbConnection
   Simple.close dbConnection
   return result
 
-runLiftIO :: MonadIO m => String -> Database a -> m a
+runLiftIO :: MonadIO m => DbConnection -> Database a -> m a
 runLiftIO dbConnection = liftIO . runIO dbConnection
 
 createDb :: (Connection -> IO a) -> Database a
