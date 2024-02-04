@@ -1,3 +1,4 @@
+{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE InstanceSigs #-}
 
 module Database
@@ -13,14 +14,18 @@ where
 
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Control.Monad.Trans.Reader (ReaderT (..))
+import Data.Aeson.Types (FromJSON)
 import Data.Text (Text)
 import Database.SQLite.Simple (Connection, FromRow, NamedParam, Query (..))
 import qualified Database.SQLite.Simple as Simple
+import GHC.Generics (Generic)
 import Prelude hiding (read)
 
-newtype Database a = Database (ReaderT Connection IO a)
+newtype DbConnection = DbConnection String deriving (Generic)
 
-newtype DbConnection = DbConnection String
+instance FromJSON DbConnection
+
+newtype Database a = Database (ReaderT Connection IO a)
 
 instance Functor Database where
   fmap :: (a -> b) -> Database a -> Database b
