@@ -4,6 +4,7 @@
 module Database
   ( Database,
     DbConnection (..),
+    DbInput (..),
     read,
     readWithParams,
     runIO,
@@ -16,7 +17,7 @@ import Control.Monad.IO.Class (MonadIO, liftIO)
 import Control.Monad.Trans.Reader (ReaderT (..))
 import Data.Aeson.Types (FromJSON)
 import Data.Text (Text)
-import Database.SQLite.Simple (Connection, FromRow, NamedParam, Query (..))
+import Database.SQLite.Simple (Connection, FromRow, NamedParam, Query (..), ToRow)
 import qualified Database.SQLite.Simple as Simple
 import GHC.Generics (Generic)
 import Prelude hiding (read)
@@ -53,19 +54,27 @@ runIO (DbConnection dbFile) (Database dbReader) = do
   Simple.close dbConnection
   return result
 
-runLiftIO :: MonadIO m => DbConnection -> Database a -> m a
+runLiftIO :: (MonadIO m) => DbConnection -> Database a -> m a
 runLiftIO dbConnection = liftIO . runIO dbConnection
 
 createDb :: (Connection -> IO a) -> Database a
 createDb = Database . ReaderT
 
-read :: FromRow a => Text -> Database [a]
+read :: (FromRow a) => Text -> Database [a]
 read query =
   createDb (\dbConnection -> Simple.query_ dbConnection $ Query query)
 
-readWithParams :: FromRow a => Text -> [NamedParam] -> Database [a]
-readWithParams query params =
+data DbInput q = Named [NamedParam] | Positional q
+
+readWithParams ::
+  (FromRow a, ToRow q) =>
+  Text ->
+  DbInput q ->
+  Database [a]
+readWithParams query (Named params) =
   createDb (\dbConnection -> Simple.queryNamed dbConnection (Query query) params)
+readWithParams query (Positional params) =
+  createDb (\dbConnection -> Simple.query dbConnection (Query query) params)
 
 write :: Text -> [NamedParam] -> Database ()
 write query params =
