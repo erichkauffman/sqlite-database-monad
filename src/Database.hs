@@ -4,9 +4,9 @@
 module Database
   ( Database,
     DbConnection (..),
-    DbInput (..),
     read,
     readWithParams,
+    readWithParams_,
     runIO,
     runLiftIO,
     write,
@@ -64,16 +64,20 @@ read :: (FromRow a) => Text -> Database [a]
 read query =
   createDb (\dbConnection -> Simple.query_ dbConnection $ Query query)
 
-data DbInput q = Named [NamedParam] | Positional q
-
 readWithParams ::
+  (FromRow a) =>
+  Text ->
+  [NamedParam] ->
+  Database [a]
+readWithParams query params =
+  createDb (\dbConnection -> Simple.queryNamed dbConnection (Query query) params)
+
+readWithParams_ ::
   (FromRow a, ToRow q) =>
   Text ->
-  DbInput q ->
+  q ->
   Database [a]
-readWithParams query (Named params) =
-  createDb (\dbConnection -> Simple.queryNamed dbConnection (Query query) params)
-readWithParams query (Positional params) =
+readWithParams_ query params =
   createDb (\dbConnection -> Simple.query dbConnection (Query query) params)
 
 write :: Text -> [NamedParam] -> Database ()
