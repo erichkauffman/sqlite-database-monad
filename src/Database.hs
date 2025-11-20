@@ -10,6 +10,7 @@ module Database
     runIO,
     runLiftIO,
     write,
+    writeMultiple,
     writeWithId,
   )
 where
@@ -93,3 +94,7 @@ writeWithId query params =
         Simple.executeNamed dbConnection (Query query) params
         pack . fromIntegral <$> Simple.lastInsertRowId dbConnection
     )
+
+writeMultiple :: (ToRow q) => Text -> [q] -> Database ()
+writeMultiple query params =
+  createDb (\dbConnection -> Simple.executeMany dbConnection (Query query) params)
