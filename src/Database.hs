@@ -10,11 +10,13 @@ module Database
     runIO,
     runLiftIO,
     write,
+    writeWithId,
   )
 where
 
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Control.Monad.Trans.Reader (ReaderT (..))
+import Control.Newtype (Newtype, pack)
 import Data.Aeson.Types (FromJSON)
 import Data.Text (Text)
 import Database.SQLite.Simple (Connection, FromRow, NamedParam, Query (..), ToRow)
@@ -83,3 +85,11 @@ readWithParams_ query params =
 write :: Text -> [NamedParam] -> Database ()
 write query params =
   createDb (\dbConnection -> Simple.executeNamed dbConnection (Query query) params)
+
+writeWithId :: (Newtype a b, Integral b) => Text -> [NamedParam] -> Database a
+writeWithId query params =
+  createDb
+    ( \dbConnection -> do
+        Simple.executeNamed dbConnection (Query query) params
+        pack . fromIntegral <$> Simple.lastInsertRowId dbConnection
+    )
