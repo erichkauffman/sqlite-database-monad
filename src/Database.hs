@@ -4,6 +4,7 @@
 module Database
   ( Database,
     DbConnection (..),
+    iodb,
     read,
     readWithParams,
     readWithParams_,
@@ -62,6 +63,9 @@ runLiftIO dbConnection = liftIO . runIO dbConnection
 
 createDb :: (Connection -> IO a) -> Database a
 createDb = Database . ReaderT
+
+iodb :: IO a -> Database a
+iodb io = createDb $ const io
 
 read :: (FromRow a) => Text -> Database [a]
 read query =
