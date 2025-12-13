@@ -159,5 +159,5 @@ liftDbEither = liftDbT
 dbError :: e -> DbEither e a
 dbError = dbEither . pure . Left
 
-runLiftEitherIO :: (MonadIO m) => DbConnection -> DbEither e a -> (Either e a -> m a) -> m a
-runLiftEitherIO dbConnection (DatabaseT dbEitherA) f = runLiftIO dbConnection dbEitherA >>= f
+runLiftEitherIO :: (MonadIO m) => DbConnection -> (Either e a -> m a) -> DbEither e a -> m a
+runLiftEitherIO dbConnection f (DatabaseT dbEitherA) = runLiftIO dbConnection dbEitherA >>= f
