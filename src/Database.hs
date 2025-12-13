@@ -17,6 +17,7 @@ module Database
     readWithParams_,
     runDatabaseT,
     runIO,
+    runLiftEitherIO,
     runLiftIO,
     write,
     writeMultiple,
@@ -157,3 +158,6 @@ liftDbEither = liftDbT
 
 dbError :: e -> DbEither e a
 dbError = dbEither . pure . Left
+
+runLiftEitherIO :: (MonadIO m) => DbConnection -> DbEither e a -> (Either e a -> m a) -> m a
+runLiftEitherIO dbConnection (DatabaseT dbEitherA) f = runLiftIO dbConnection dbEitherA >>= f
