@@ -9,6 +9,8 @@ module Database
     dbT,
     dbEither,
     iodb,
+    liftDbT,
+    liftDbEither,
     read,
     readWithParams,
     readWithParams_,
@@ -138,10 +140,16 @@ instance (Monad m, Traversable m) => Monad (DatabaseT m) where
 dbT :: Database (m a) -> DatabaseT m a
 dbT = DatabaseT
 
+liftDbT :: (Applicative m) => Database a -> DatabaseT m a
+liftDbT = DatabaseT . fmap pure
+
+runDatabaseT :: DatabaseT m a -> Database (m a)
+runDatabaseT (DatabaseT dbma) = dbma
+
 type DbEither e a = DatabaseT (Either e) a
 
 dbEither :: Database (Either e a) -> DbEither e a
 dbEither = dbT
 
-runDatabaseT :: DatabaseT m a -> Database (m a)
-runDatabaseT (DatabaseT dbma) = dbma
+liftDbEither :: Database a -> DbEither e a
+liftDbEither = liftDbT
