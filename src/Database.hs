@@ -3,11 +3,16 @@
 
 module Database
   ( Database,
+    DatabaseT,
     DbConnection (..),
+    DbEither,
+    dbT,
+    dbEither,
     iodb,
     read,
     readWithParams,
     readWithParams_,
+    runDatabaseT,
     runIO,
     runLiftIO,
     write,
@@ -16,6 +21,7 @@ module Database
   )
 where
 
+import Control.Monad (join)
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Control.Monad.Trans.Reader (ReaderT (..))
 import Control.Newtype (Newtype, pack)
@@ -102,3 +108,40 @@ writeWithId query params =
 writeMultiple :: (ToRow q) => Text -> [q] -> Database ()
 writeMultiple query params =
   createDb (\dbConnection -> Simple.executeMany dbConnection (Query query) params)
+
+newtype DatabaseT m a = DatabaseT (Database (m a))
+
+instance (Functor m) => Functor (DatabaseT m) where
+  fmap :: (a -> b) -> DatabaseT m a -> DatabaseT m b
+  fmap f (DatabaseT dbMA) = DatabaseT $ fmap (fmap f) dbMA
+
+instance (Applicative m) => Applicative (DatabaseT m) where
+  pure :: a -> DatabaseT m a
+  pure a = DatabaseT $ pure $ pure a
+
+  (<*>) :: DatabaseT m (a -> b) -> DatabaseT m a -> DatabaseT m b
+  (DatabaseT dbMAtoB) <*> (DatabaseT dbMA) =
+    DatabaseT $
+      liftA2
+        (<*>)
+        dbMAtoB
+        dbMA
+
+instance (Monad m, Traversable m) => Monad (DatabaseT m) where
+  (>>=) :: DatabaseT m a -> (a -> DatabaseT m b) -> DatabaseT m b
+  (DatabaseT dbMA) >>= f = DatabaseT $ do
+    mA <- dbMA
+    let mDbTMB = fmap f mA
+    let mDbMB = fmap (\(DatabaseT dbMB) -> dbMB) mDbTMB
+    join <$> sequence mDbMB
+
+dbT :: Database (m a) -> DatabaseT m a
+dbT = DatabaseT
+
+type DbEither e a = DatabaseT (Either e) a
+
+dbEither :: Database (Either e a) -> DbEither e a
+dbEither = dbT
+
+runDatabaseT :: DatabaseT m a -> Database (m a)
+runDatabaseT (DatabaseT dbma) = dbma
