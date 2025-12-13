@@ -6,11 +6,12 @@ module Database
     DatabaseT,
     DbConnection (..),
     DbEither,
-    dbT,
     dbEither,
+    dbError,
+    dbT,
     iodb,
-    liftDbT,
     liftDbEither,
+    liftDbT,
     read,
     readWithParams,
     readWithParams_,
@@ -153,3 +154,6 @@ dbEither = dbT
 
 liftDbEither :: Database a -> DbEither e a
 liftDbEither = liftDbT
+
+dbError :: e -> DbEither e a
+dbError = dbEither . pure . Left
