@@ -1,5 +1,6 @@
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE InstanceSigs #-}
+{-# LANGUAGE OverloadedStrings #-}
 
 module Database
   ( Database,
@@ -12,6 +13,7 @@ module Database
     iodb,
     liftDbEither,
     liftDbT,
+    listParams,
     read,
     readWithParams,
     readWithParams_,
@@ -30,7 +32,9 @@ import Control.Monad.IO.Class (MonadIO, liftIO)
 import Control.Monad.Trans.Reader (ReaderT (..))
 import Control.Newtype (Newtype, pack)
 import Data.Aeson.Types (FromJSON)
+import qualified Data.List as List
 import Data.Text (Text)
+import qualified Data.Text as Text
 import Database.SQLite.Simple (Connection, FromRow, NamedParam, Query (..), ToRow)
 import qualified Database.SQLite.Simple as Simple
 import GHC.Generics (Generic)
@@ -112,6 +116,9 @@ writeWithId query params =
 writeMultiple :: (ToRow q) => Text -> [q] -> Database ()
 writeMultiple query params =
   createDb (\dbConnection -> Simple.executeMany dbConnection (Query query) params)
+
+listParams :: [a] -> Text
+listParams xs = Text.pack $ '(' : List.intercalate ", " ["?" | _ <- xs] ++ ")"
 
 newtype DatabaseT m a = DatabaseT (Database (m a))
 
