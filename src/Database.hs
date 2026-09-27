@@ -1,5 +1,6 @@
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE InstanceSigs #-}
+{-# LANGUAGE OverloadedStrings #-}
 
 module Database
   ( Database,
@@ -12,6 +13,8 @@ module Database
     iodb,
     liftDbEither,
     liftDbT,
+    listParams,
+    listNamedParams,
     read,
     readWithParams,
     readWithParams_,
@@ -30,9 +33,12 @@ import Control.Monad.IO.Class (MonadIO, liftIO)
 import Control.Monad.Trans.Reader (ReaderT (..))
 import Control.Newtype (Newtype, pack)
 import Data.Aeson.Types (FromJSON)
+import qualified Data.List as List
 import Data.Text (Text)
-import Database.SQLite.Simple (Connection, FromRow, NamedParam, Query (..), ToRow)
+import qualified Data.Text as Text
+import Database.SQLite.Simple (Connection, FromRow, NamedParam (..), Query (..), ToRow)
 import qualified Database.SQLite.Simple as Simple
+import Database.SQLite.Simple.ToField (ToField)
 import GHC.Generics (Generic)
 import Prelude hiding (read)
 
@@ -112,6 +118,27 @@ writeWithId query params =
 writeMultiple :: (ToRow q) => Text -> [q] -> Database ()
 writeMultiple query params =
   createDb (\dbConnection -> Simple.executeMany dbConnection (Query query) params)
+
+listParams :: [a] -> Text
+listParams xs = Text.pack $ '(' : List.intercalate ", " ["?" | _ <- xs] ++ ")"
+
+generatedNamedParamTag :: String -> Int -> String
+generatedNamedParamTag paramId idx =
+  ':' : paramId ++ show idx
+
+generatedNamedParamTags :: String -> [a] -> [String]
+generatedNamedParamTags paramId xs = [generatedNamedParamTag paramId idx | idx <- [1 .. length xs]]
+
+queryListNamedParams :: [String] -> Text
+queryListNamedParams namedParamTags = Text.pack $ '(' : List.intercalate ", " namedParamTags ++ ")"
+
+generatedNamedParams :: (ToField a) => [String] -> [a] -> [NamedParam]
+generatedNamedParams namedParamTags xs = (\(x, tag) -> Text.pack tag := x) <$> zip xs namedParamTags
+
+listNamedParams :: (ToField a) => String -> [a] -> (Text, [NamedParam])
+listNamedParams paramId xs =
+  let namedParamTags = generatedNamedParamTags paramId xs
+   in (queryListNamedParams namedParamTags, generatedNamedParams namedParamTags xs)
 
 newtype DatabaseT m a = DatabaseT (Database (m a))
 
